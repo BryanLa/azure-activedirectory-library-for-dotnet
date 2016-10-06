@@ -1168,8 +1168,8 @@ namespace Test.ADAL.NET.Unit
                 }
             });
 
-                AuthenticationResult result = await context.AcquireTokenAsync(TestConstants.DefaultResource, credential);
-                Assert.IsNotNull(result.AccessToken);
+            AuthenticationResult result = await context.AcquireTokenAsync(TestConstants.DefaultResource, credential);
+            Assert.IsNotNull(result.AccessToken);
 
             // cache look up
             var result2 = await context.AcquireTokenAsync(TestConstants.DefaultResource, credential);
@@ -1503,27 +1503,25 @@ namespace Test.ADAL.NET.Unit
             Assert.IsNotNull(telemetry);
 
             DispatcherImplement dispatcher = new DispatcherImplement();
-            telemetry.RegisterDispatcher(dispatcher, true);
+            telemetry.RegisterDispatcher(dispatcher, false);
             dispatcher.clear();
             string requestIDThree = telemetry.CreateRequestId();
             telemetry.StartEvent(requestIDThree, "event_3");
-            DefaultEvent testDefaultEvent3 = new DefaultEvent("event_3");
+            DefaultEvent testDefaultEvent3 = new DefaultEvent();
             Assert.IsNotNull(DefaultEvent.ApplicationVersion);
             telemetry.StopEvent(requestIDThree, testDefaultEvent3, "event_3");
 
             telemetry.StartEvent(requestIDThree, "event_4");
-            DefaultEvent testDefaultEvent4 = new DefaultEvent("event_4");
+            DefaultEvent testDefaultEvent4 = new DefaultEvent();
             Assert.IsNotNull(DefaultEvent.ApplicationVersion);
             telemetry.StopEvent(requestIDThree, testDefaultEvent4, "event_4");
 
             telemetry.StartEvent(requestIDThree, "event_5");
-            DefaultEvent testDefaultEvent5 = new DefaultEvent("event_5");
+            DefaultEvent testDefaultEvent5 = new DefaultEvent();
             Assert.IsNotNull(DefaultEvent.ApplicationVersion);
             telemetry.StopEvent(requestIDThree, testDefaultEvent5, "event_5");
             telemetry.Flush(requestIDThree);
             Assert.AreEqual(dispatcher.Count, 3);
-
-            dispatcher.file();
         }
 
 
@@ -1535,17 +1533,17 @@ namespace Test.ADAL.NET.Unit
             Assert.IsNotNull(telemetry);
 
             DispatcherImplement dispatcher = new DispatcherImplement();
-            telemetry.RegisterDispatcher(dispatcher, false);
+            telemetry.RegisterDispatcher(dispatcher, true);
             dispatcher.clear();
             string requestIDThree = telemetry.CreateRequestId();
             telemetry.StartEvent(requestIDThree, "cache_lookup");
-            CacheEvent testDefaultEvent = new CacheEvent("cache_lookup");
+            CacheEvent testDefaultEvent = new CacheEvent();
             Assert.IsNotNull(DefaultEvent.ApplicationVersion);
             telemetry.StopEvent(requestIDThree, testDefaultEvent, "cache_lookup");
             telemetry.Flush(requestIDThree);
             Assert.AreEqual(dispatcher.Count, 1);
 
-            bool result = dispatcher.Cachefile();
+            bool result = dispatcher.CacheTelemetryValidator();
 
             Assert.IsTrue(result);
         }
@@ -1558,7 +1556,7 @@ namespace Test.ADAL.NET.Unit
             Assert.IsNotNull(telemetry);
 
             DispatcherImplement dispatcher = new DispatcherImplement();
-            telemetry.RegisterDispatcher(dispatcher, false);
+            telemetry.RegisterDispatcher(dispatcher, true);
             dispatcher.clear();
             string requestIDThree = telemetry.CreateRequestId();
             telemetry.StartEvent(requestIDThree, "api_event");
@@ -1572,7 +1570,7 @@ namespace Test.ADAL.NET.Unit
             telemetry.Flush(requestIDThree);
             Assert.AreEqual(dispatcher.Count, 1);
 
-            bool result = dispatcher.Apifile();
+            bool result = dispatcher.ApiTelemetryValidator();
 
             Assert.IsTrue(result);
         }
@@ -1585,17 +1583,15 @@ namespace Test.ADAL.NET.Unit
             Assert.IsNotNull(telemetry);
 
             DispatcherImplement dispatcher = new DispatcherImplement();
-            telemetry.RegisterDispatcher(dispatcher, false);
+            telemetry.RegisterDispatcher(dispatcher, true);
             dispatcher.clear();
             string requestIDThree = telemetry.CreateRequestId();
             telemetry.StartEvent(requestIDThree, "event_3");
-            DefaultEvent testDefaultEvent = new DefaultEvent("event_3");
+            DefaultEvent testDefaultEvent = new DefaultEvent();
             Assert.IsNotNull(DefaultEvent.ApplicationVersion);
             telemetry.StopEvent(requestIDThree, testDefaultEvent, "event_3");
             telemetry.Flush(requestIDThree);
             Assert.AreEqual(dispatcher.Count, 1);
-
-            dispatcher.file();
         }
 
         [TestMethod]
@@ -1606,34 +1602,66 @@ namespace Test.ADAL.NET.Unit
             Assert.IsNotNull(telemetry);
 
             DispatcherImplement dispatcher = new DispatcherImplement();
-            telemetry.RegisterDispatcher(dispatcher, false);
+            telemetry.RegisterDispatcher(dispatcher, true);
             dispatcher.clear();
             string requestIDThree = telemetry.CreateRequestId();
             telemetry.StartEvent(requestIDThree, "event_3");
-            DefaultEvent testDefaultEvent3 = new DefaultEvent("event_3");
+            DefaultEvent testDefaultEvent3 = new DefaultEvent();
             Assert.IsNotNull(DefaultEvent.ApplicationVersion);
             telemetry.StopEvent(requestIDThree, testDefaultEvent3, "event_3");
 
             telemetry.StartEvent(requestIDThree, "event_4");
-            DefaultEvent testDefaultEvent4 = new DefaultEvent("event_4");
+            DefaultEvent testDefaultEvent4 = new DefaultEvent();
             Assert.IsNotNull(DefaultEvent.ApplicationVersion);
             telemetry.StopEvent(requestIDThree, testDefaultEvent4, "event_4");
 
             telemetry.StartEvent(requestIDThree, "event_5");
-            DefaultEvent testDefaultEvent5 = new DefaultEvent("event_5");
+            DefaultEvent testDefaultEvent5 = new DefaultEvent();
             Assert.IsNotNull(DefaultEvent.ApplicationVersion);
             telemetry.StopEvent(requestIDThree, testDefaultEvent5, "event_5");
             telemetry.Flush(requestIDThree);
             Assert.AreEqual(dispatcher.Count, 1);
+        }
 
-            dispatcher.file();
+        [TestMethod]
+        [Description("Test for telemetry event in acquireToken")]
+        [TestCategory("AdalDotNet")]
+        public async Task TelemetryAcquireTokenTest()
+        {
+            MockHelpers.ConfigureMockWebUI(new AuthorizationResult(AuthorizationStatus.Success,
+                TestConstants.DefaultRedirectUri + "?code=some-code"));
+            HttpMessageHandlerFactory.AddMockHandler(new MockHttpMessageHandler()
+            {
+                Method = HttpMethod.Post,
+                ResponseMessage = MockHelpers.CreateSuccessTokenResponseMessage()
+            });
+
+            Telemetry telemetry = Telemetry.GetInstance();
+            DispatcherImplement dispatcher = new DispatcherImplement();
+            telemetry.RegisterDispatcher(dispatcher, false);
+
+
+            var context = new AuthenticationContext(TestConstants.DefaultAuthorityCommonTenant, true);
+            AuthenticationResult result =
+                await
+                    context.AcquireTokenAsync(TestConstants.DefaultResource, TestConstants.DefaultClientId,
+                        TestConstants.DefaultRedirectUri, platformParameters);
+            Assert.IsNotNull(result);
+            Assert.IsTrue(context.Authenticator.Authority.EndsWith("/some-tenant-id/"));
+            Assert.AreEqual(result.AccessToken, "some-access-token");
+            Assert.IsNotNull(result.UserInfo);
+            Assert.AreEqual(result.ExpiresOn, result.ExtendedExpiresOn);
+            Assert.AreEqual(TestConstants.DefaultDisplayableId, result.UserInfo.DisplayableId);
+            Assert.AreEqual(TestConstants.DefaultUniqueId, result.UserInfo.UniqueId);
+
+            Assert.IsTrue(dispatcher.AcquireTokenTelemetryValidator());
         }
 
         class DispatcherImplement : IDispatcher
         {
             private readonly List<List<Tuple<string, string>>> storeList = new List<List<Tuple<string, string>>>();
 
-            void IDispatcher.Dispatch(List<Tuple<string, string>> Event)
+            void IDispatcher.DispatchEvent(List<Tuple<string, string>> Event)
             {
                 storeList.Add(Event);
             }
@@ -1648,21 +1676,7 @@ namespace Test.ADAL.NET.Unit
                 storeList.Clear();
             }
 
-            public void file()
-            {
-                using (TextWriter tw = new StreamWriter("test.txt"))
-                {
-                    foreach (List<Tuple<string, string>> list in storeList)
-                    {
-                        foreach (Tuple<string, string> tuple in list)
-                        {
-                            tw.WriteLine(tuple.Item1 + " " + tuple.Item2 + "\r\n");
-                        }
-                    }
-                }
-            }
-
-            public bool Cachefile()
+            public bool CacheTelemetryValidator()
             {
                 HashSet<string> Cacheitems = new HashSet<string>();
                 Cacheitems.Add("event_name");
@@ -1677,27 +1691,20 @@ namespace Test.ADAL.NET.Unit
                 Cacheitems.Add("response_time");
                 Cacheitems.Add("request_id");
 
-                using (TextWriter tw = new StreamWriter("test.txt"))
+                foreach (var list in storeList)
                 {
-                    foreach (List<Tuple<string, string>> list in storeList)
+                    foreach (var tuple in list)
                     {
-                        foreach (Tuple<string, string> tuple in list)
+                        if (!(Cacheitems.Contains(tuple.Item1) && tuple.Item2 != null && tuple.Item2.Length > 0))
                         {
-                            if (Cacheitems.Contains(tuple.Item1) && tuple.Item2 != null && tuple.Item2.Length > 0)
-                            {
-                                tw.WriteLine(tuple.Item1 + " " + tuple.Item2 + "\r\n");
-                            }
-                            else
-                            {
-                                return false;
-                            }
+                            return false;
                         }
                     }
                 }
                 return true;
             }
 
-            public bool Apifile()
+            public bool ApiTelemetryValidator()
             {
                 HashSet<string> Apiitems = new HashSet<string>();
                 Apiitems.Add("event_name");
@@ -1717,30 +1724,76 @@ namespace Test.ADAL.NET.Unit
                 Apiitems.Add("unique_id");
                 Apiitems.Add("authority");
                 Apiitems.Add("authority_type");
-                Apiitems.Add("is_deprecated");
                 Apiitems.Add("validation_status");
                 Apiitems.Add("extended_expires_on_setting");
                 Apiitems.Add("is_successful");
                 Apiitems.Add("user_id");
                 Apiitems.Add("tenant_id");
-                Apiitems.Add("idp");
                 Apiitems.Add("login_hint");
                 Apiitems.Add("api_id");
 
-                using (TextWriter tw = new StreamWriter("test.txt"))
+                foreach (var list in storeList)
                 {
-                    foreach (List<Tuple<string, string>> list in storeList)
+                    foreach (var tuple in list)
                     {
-                        foreach (Tuple<string, string> tuple in list)
+                        if (!(Apiitems.Contains(tuple.Item1) && tuple.Item2 != null && tuple.Item2.Length > 0))
                         {
-                            if (Apiitems.Contains(tuple.Item1) && tuple.Item2 != null && tuple.Item2.Length > 0)
-                            {
-                                tw.WriteLine(tuple.Item1 + " " + tuple.Item2 + "\r\n");
-                            }
-                            else
-                            {
-                                return false;
-                            }
+                            return false;
+                        }
+                    }
+                }
+                return true;
+            }
+
+            public bool AcquireTokenTelemetryValidator()
+            {
+                HashSet<string> items = new HashSet<string>();
+                items.Add("event_name");
+                items.Add("application_name");
+                items.Add("application_version");
+                items.Add("sdk_version");
+                items.Add("sdk_platform");
+                items.Add("device_id");
+                items.Add("correlation_id");
+                items.Add("start_time");
+                items.Add("end_time");
+                items.Add("response_time");
+                items.Add("request_id");
+                items.Add("is_deprecated");
+                items.Add("idp");
+                items.Add("displayable_id");
+                items.Add("unique_id");
+                items.Add("authority");
+                items.Add("authority_type");
+                items.Add("validation_status");
+                items.Add("extended_expires_on_setting");
+                items.Add("is_successful");
+                items.Add("user_id");
+                items.Add("tenant_id");
+                items.Add("broker_app");
+                items.Add("broker_version");
+                items.Add("login_hint");
+                items.Add("api_id");
+                items.Add("user_agent");
+                items.Add("method");
+                items.Add("query_parameters");
+                items.Add("response_code");
+                items.Add("response_method");
+                items.Add("api_version");
+                items.Add("token_found");
+                items.Add("request_api_version");
+                items.Add("token_subject_type");
+                items.Add("user_cancel");
+                items.Add("redirects_count");
+                items.Add("is_MRRT");
+
+                foreach (var list in storeList)
+                {
+                    foreach (var tuple in list)
+                    {
+                        if (!(items.Contains(tuple.Item1) && tuple.Item2 != null && tuple.Item2.Length > 0))
+                        {
+                            return false;
                         }
                     }
                 }
